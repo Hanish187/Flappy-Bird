@@ -1,267 +1,219 @@
-    import java.awt.*;
-    import java.awt.event.*;
-    import java.util.ArrayList;
-    import java.io.*;
-    import java.util.Random;
-    import javax.swing.*;
-    public class FlappyBird extends JPanel implements ActionListener, KeyListener{
-        
-        int boardWidth = 360;
-        int boardHeight = 640;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.Random;
+import java.io.*;
+import javax.swing.*;
 
+public class FlappyBird extends JPanel implements ActionListener, KeyListener {
 
-        
-        Image backgroundImg;
-        Image birdImg;
-        Image topPipeImg;
-        Image bottomPipeImg;
-        Image startimg;
+    // Constants
+    final int BOARD_WIDTH = 360;
+    final int BOARD_HEIGHT = 640;
+    final int BIRD_WIDTH = 34;
+    final int BIRD_HEIGHT = 24;
+    final int PIPE_WIDTH = 64;
+    final int PIPE_HEIGHT = 512;
+    final int PIPE_GAP = BOARD_HEIGHT / 4;
+    final String SCORE_FILE = "highestscore.txt";
 
+    // Images
+    Image backgroundImg, birdImg, topPipeImg, bottomPipeImg;
 
+    // Bird properties
+    class Bird {
+        int x, y, width, height;
+        Image img;
 
-        int birdX = boardWidth/8;
-        int birdY = boardWidth/2;
-        int birdWidth = 34;
-        int birdHeight = 24;
+        Bird(int x, int y, int width, int height, Image img) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.img = img;
+        }
+    }
 
-        class Bird{
-            int x = birdX;
-            int y = birdY;
-            int width = birdWidth;
-            int height = birdHeight;
-            Image img;
+    Bird bird;
 
-            Bird(Image img)
-            {
-                this.img = img;
-            }
+    // Pipe properties
+    class Pipe {
+        int x, y, width, height;
+        Image img;
+        boolean passed;
+
+        Pipe(int x, int y, int width, int height, Image img) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.img = img;
+            this.passed = false;
+        }
+    }
+
+    ArrayList<Pipe> pipes;
+
+    // Game state variables
+    Timer gameLoop, pipeSpawner;
+    int birdVelocityY = 0;
+    final int GRAVITY = 1;
+    final int PIPE_SPEED = -4;
+    boolean gameOver = false, gameStarted = false;
+    double score = 0, highScore = 0;
+
+    public FlappyBird() {
+        setPreferredSize(new Dimension(BOARD_WIDTH, BOARD_HEIGHT));
+        setFocusable(true);
+        addKeyListener(this);
+
+        // Load images
+        backgroundImg = new ImageIcon(getClass().getResource("./flappybirdbg.png")).getImage();
+        birdImg = new ImageIcon(getClass().getResource("./flappybird.png")).getImage();
+        topPipeImg = new ImageIcon(getClass().getResource("./toppipe.png")).getImage();
+        bottomPipeImg = new ImageIcon(getClass().getResource("./bottompipe.png")).getImage();
+
+        // Initialize objects
+        bird = new Bird(BOARD_WIDTH / 8, BOARD_HEIGHT / 2, BIRD_WIDTH, BIRD_HEIGHT, birdImg);
+        pipes = new ArrayList<>();
+        loadHighScore();
+
+        // Timers
+        gameLoop = new Timer(1000 / 60, this);
+        pipeSpawner = new Timer(1500, e -> spawnPipes());
+    }
+
+    void spawnPipes() {
+        int randomY = (int) (-PIPE_HEIGHT / 4 - Math.random() * (PIPE_HEIGHT / 2));
+        pipes.add(new Pipe(BOARD_WIDTH, randomY, PIPE_WIDTH, PIPE_HEIGHT, topPipeImg));
+        pipes.add(new Pipe(BOARD_WIDTH, randomY + PIPE_HEIGHT + PIPE_GAP, PIPE_WIDTH, PIPE_HEIGHT, bottomPipeImg));
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        g.drawImage(backgroundImg, 0, 0, BOARD_WIDTH, BOARD_HEIGHT, null);
+        g.drawImage(bird.img, bird.x, bird.y, bird.width, bird.height, null);
+
+        for (Pipe pipe : pipes) {
+            g.drawImage(pipe.img, pipe.x, pipe.y, pipe.width, pipe.height, null);
         }
 
-
-        int pipeX = boardWidth;
-        int pipeY = 0;
-        int pipeWidth = 64;
-        int pipeHeight= 512;
-
-        class Pipe{
-            int x = pipeX; 
-            int y = pipeY;
-            int width = pipeWidth;
-            int height = pipeHeight;
-            Image img ;
-            boolean passed = false;
-
-
-            Pipe(Image img) 
-            {
-                this.img = img;
-            }
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        if (gameOver) {
+            g.drawString("Game Over!", BOARD_WIDTH / 4, BOARD_HEIGHT / 2 - 50);
+            g.drawString("Score: " + (int) score, BOARD_WIDTH / 4, BOARD_HEIGHT / 2);
+            g.drawString("High Score: " + (int) highScore, BOARD_WIDTH / 4, BOARD_HEIGHT / 2 + 50);
+        } else {
+            g.drawString("Score: " + (int) score, 10, 30);
+            g.drawString("High Score: " + (int) highScore, 10, 60);
         }
+    }
 
+    void moveBird() {
+        birdVelocityY += GRAVITY;
+        bird.y += birdVelocityY;
+        bird.y = Math.max(bird.y, 0);
 
-        Bird bird;
-        int velocityX = -4;
-        int velocityY = 0;
-        int gravity = 1;
-
-        ArrayList<Pipe> pipes;
-        Random random = new Random();
-
-        Timer gameLoop;
-        Timer placePipeTimer;
-        boolean gameOver = false;
-        boolean gameStarted = false;
-        double score = 0;
-        double heightscore = 0;
-        final String scoreFile = "higestscore.txt";
-        JButton startButton;
-        
-        FlappyBird()
-        {
-            setPreferredSize(new Dimension(boardWidth, boardHeight));
-            setFocusable(true);
-            addKeyListener(this);
-
-            backgroundImg = new ImageIcon(getClass().getResource("./flappybirdbg.png")).getImage();
-            birdImg = new ImageIcon(getClass().getResource("./flappybird.png")).getImage();
-            topPipeImg = new ImageIcon(getClass().getResource("./toppipe.png")).getImage();
-            bottomPipeImg = new ImageIcon(getClass().getResource("./bottompipe.png")).getImage();
-            
-            bird = new Bird(birdImg);
-            pipes = new ArrayList<Pipe>();
-
-            loadingheightscore();
-
-            placePipeTimer = new Timer(1500, new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e)
-                {
-                    placePipes();
-                }
-            });
-            placePipeTimer.start();
-            gameLoop = new Timer(1000/60, this);
-            startButton = new JButton("Start");
-            startButton.setBounds((boardWidth-100)/2,(boardHeight-50)/2,100,50);
-            startButton.addActionListener(e ->{
-                gameStarted = true;
-                startButton.setVisible(false);
-                placePipeTimer.start();
-                gameLoop.start();
-
-            });
-            setLayout(null);
-            add(startButton);
+        if (bird.y > BOARD_HEIGHT) {
+            gameOver = true;
         }
-        void placePipes()
-        {
-            int randomPipeY = (int) (pipeY - pipeHeight/4-Math.random()*(pipeHeight/2));
-            int openingSpace = boardHeight/4;
+    }
 
-            Pipe topPipe =  new Pipe(topPipeImg);
-            topPipe.y = randomPipeY;
-            pipes.add(topPipe);
-
-            Pipe bottomPipe = new Pipe(bottomPipeImg);
-            bottomPipe.y = topPipe.y + pipeHeight + openingSpace;
-            pipes.add(bottomPipe);
-        }
-        public void paintComponent(Graphics g)
-        {
-            super.paintComponent(g);
-            draw(g);
-        }
-
-
-        public void draw(Graphics g)
-        {
-            g.drawImage(backgroundImg,0,0,this.boardWidth, this.boardHeight, null);
-
-            g.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height, null);
-
-            for(int i=0;i<pipes.size();i++)
-            {
-                Pipe pipe = pipes.get(i);
-                g.drawImage(pipe.img, pipe.x,pipe.y, pipe.width, pipe.height, null);
+    void movePipes() {
+        for (Pipe pipe : pipes) {
+            pipe.x += PIPE_SPEED;
+            if (!pipe.passed && bird.x > pipe.x + pipe.width) {
+                score += 0.5;
+                pipe.passed = true;
             }
-            g.setColor(Color.white);
-
-            g.setFont(new Font("Arial",Font.PLAIN,32));
-
-            if(gameOver)
-            {
-                g.drawString("Game Over: " + String.valueOf((int) score),10, 35);
-                g.drawString("Higest Score"+ (int)heightscore, 10,75);
-            }
-            else{
-                g.drawString(String.valueOf((int) score), 10, 35);
-                g.drawString("Highest Score: "+  (int) heightscore, 10,75);
-            }
-        }
-
-
-
-        public void move(){
-            velocityY += gravity;
-            bird.y += velocityY;
-            bird.y = Math.max(bird.y, 0);
-
-
-            for(int i=0;i<pipes.size();i++)
-            {
-                Pipe pipe = pipes.get(i);
-                pipe.x += velocityX;
-
-
-                if(!pipe.passed && bird.x > pipe.x + pipe.width){
-                    score += 0.5;
-                    pipe.passed  = true;
-                }
-
-                if(collision(bird, pipe))
-                {
-                    gameOver = true;
-                }
-            }
-
-            if(bird.y > boardHeight)
-            {
+            if (checkCollision(bird, pipe)) {
                 gameOver = true;
             }
         }
-        boolean collision(Bird a, Pipe b){
-            return a.x < b.x + b.width &&
-            a.x + a.width > b.x &&
-            a.y < b.y + b.height &&
-            a.y + a.height > b.y;  
-        }
-        @Override
-        public void actionPerformed(ActionEvent e){
-            move();
-            repaint();
-            if(gameOver){
-                if(score>heightscore)
-                {
-                    heightscore = score;
-                    saveHighestScore();
-                }
-                placePipeTimer.stop();
-                gameLoop.stop();
-            }
-        }
+        pipes.removeIf(pipe -> pipe.x + pipe.width < 0);
+    }
 
-        @Override
-        public void keyPressed(KeyEvent e){
-            if(e.getKeyCode() == KeyEvent.VK_SPACE){
-                velocityY = -9;
-                if (gameOver) 
-                {
-                    if(score > heightscore){
-                        heightscore = score;
-                    }
-                    bird.y = birdY;
-                    velocityY = 0;
-                    pipes.clear();
-                    gameOver = false;
-                    score = 0;
-                    gameLoop.start();
-                    placePipeTimer.start();   
-                }
-            }
-        }
+    boolean checkCollision(Bird bird, Pipe pipe) {
+        return bird.x < pipe.x + pipe.width &&
+               bird.x + bird.width > pipe.x &&
+               bird.y < pipe.y + pipe.height &&
+               bird.y + bird.height > pipe.y;
+    }
 
+    void resetGame() {
+        gameOver = false;
+        score = 0;
+        bird.y = BOARD_HEIGHT / 2;
+        birdVelocityY = 0;
+        pipes.clear();
+    }
 
-        void loadingheightscore()
-    {
-        try{
-            File file = new File(scoreFile);
-            if(file.exists()){
-                BufferedReader reader = new BufferedReader(new FileReader(file));
-                String line = reader.readLine();
-                if(line != null){
-                    heightscore = Double.parseDouble(line);
-                }
-                reader.close();
+    void loadHighScore() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(SCORE_FILE))) {
+            String line = reader.readLine();
+            if (line != null) {
+                highScore = Double.parseDouble(line);
             }
+        } catch (IOException e) {
+            System.out.println("High score file not found.");
         }
-        catch(IOException e){
+    }
+
+    void saveHighScore() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(SCORE_FILE))) {
+            writer.write(String.valueOf(highScore));
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    void saveHighestScore(){
-        try{
-            BufferedWriter writer = new BufferedWriter(new FileWriter(scoreFile));
-            writer.write(String.valueOf(heightscore));
-            writer.close();
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (!gameOver) {
+            moveBird();
+            movePipes();
+        } else {
+            if (score > highScore) {
+                highScore = score;
+                saveHighScore();
+            }
+            gameLoop.stop();
+            pipeSpawner.stop();
         }
-        catch(IOException e){
-            e.printStackTrace();
+        repaint();
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_SPACE) {
+            if (!gameStarted) {
+                gameStarted = true;
+                gameLoop.start();
+                pipeSpawner.start();
+            }
+            if (!gameOver) {
+                birdVelocityY = -10;
+            } else {
+                resetGame();
+                gameLoop.start();
+                pipeSpawner.start();
+            }
         }
     }
-        
-        @Override
-        public void keyTyped(KeyEvent e){
-        }
-        @Override
-        public void keyReleased(KeyEvent e){}
+
+    @Override
+    public void keyReleased(KeyEvent e) {}
+    @Override
+    public void keyTyped(KeyEvent e) {}
+
+    public static void main(String[] args) {
+        JFrame frame = new JFrame("Flappy Bird");
+        FlappyBird game = new FlappyBird();
+        frame.add(game);
+        frame.pack();
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
     }
+}
