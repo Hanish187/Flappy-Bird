@@ -5,8 +5,6 @@ public class App {
         int boardHeigth = 640;
 
         JFrame  frame = new JFrame("Flappy Bird");
-        FlappyBird game = new FlappyBird();
-
         frame.setSize(boardWidth,boardHeigth);
         frame.setLocationRelativeTo(null);
         frame.setResizable(false);
