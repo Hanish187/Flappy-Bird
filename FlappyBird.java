@@ -151,7 +151,7 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     }
 
     void loadHighScore() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(SCORE_FILE))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("highestscore.txt"))) {
             String line = reader.readLine();
             if (line != null) {
                 highScore = Double.parseDouble(line);
@@ -162,7 +162,7 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     }
 
     void saveHighScore() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(SCORE_FILE))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("highestscore.txt"))) {
             writer.write(String.valueOf(highScore));
         } catch (IOException e) {
             e.printStackTrace();
